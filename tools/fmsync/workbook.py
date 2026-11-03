@@ -21,11 +21,20 @@ def _row(value) -> str:
     return s[:-2] if s.endswith(".0") else s
 
 
-def read_features(path) -> list[Feature]:
+def _sheets(path, names) -> dict:
+    """All rows (as value tuples) of the named sheets; the read-only workbook is closed again."""
     wb = openpyxl.load_workbook(path, read_only=True)
+    try:
+        return {name: list(wb[name].iter_rows(values_only=True)) for name in names}
+    finally:
+        wb.close()
+
+
+def read_features(path) -> list[Feature]:
+    sheets = _sheets(path, SHEET_REPO)
     out, seen = [], set()
     for sheet, repo in SHEET_REPO.items():
-        rows = list(wb[sheet].iter_rows(values_only=True))
+        rows = sheets[sheet]
         header = tuple(_s(c) for c in rows[0][:len(HEADER)])
         if header != HEADER:
             raise WorkbookError(f"{sheet}: unexpected header {header}")
@@ -53,14 +62,14 @@ def read_features(path) -> list[Feature]:
 
 
 def read_requirements(map_path, source_path) -> list[Requirement]:
-    rows = list(openpyxl.load_workbook(map_path, read_only=True)["Rows"].iter_rows(values_only=True))[1:]
-    src = openpyxl.load_workbook(source_path, read_only=True)
+    rows = _sheets(map_path, ["Rows"])["Rows"][1:]
+    src = _sheets(source_path, ["functions", "delivery"])
     functions = {}
-    for r in list(src["functions"].iter_rows(values_only=True))[1:]:
+    for r in src["functions"][1:]:
         if r[0] is not None:
             functions[_row(r[0])] = (_s(r[6]), _s(r[7]))
     delivery = {}
-    for r in list(src["delivery"].iter_rows(values_only=True))[1:]:
+    for r in src["delivery"][1:]:
         head = _s(r[0]).split(" ", 1)[0]
         if head in ROWS:
             delivery[head] = _s(r[2])
@@ -70,6 +79,11 @@ def read_requirements(map_path, source_path) -> list[Requirement]:
             continue
         row = _row(r[0])
         national, expansion = functions.get(row, ("", ""))
+        if row != "F":
+            for heading, text in (("国家要求", national), ("扩展功能及参数依据", expansion),
+                                  ("量化指标要求", delivery.get(row, ""))):
+                if not text:
+                    raise WorkbookError(f"row {row}: empty {heading} in the v1.3 workbook")
         out.append(Requirement(row, _s(r[1]), _s(r[2]), national, expansion, delivery.get(row, "")))
     if [q.row for q in out] != list(ROWS):
         raise WorkbookError(f"Rows sheet must list {', '.join(ROWS)} in order, got {[q.row for q in out]}")

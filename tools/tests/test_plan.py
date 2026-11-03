@@ -1,3 +1,4 @@
+import re
 from collections import Counter
 
 import pytest
@@ -110,5 +111,5 @@ def test_issue_in_wrong_repo_is_an_error():
     old = st.issues["13.03"]
     st.issues["13.03"] = plan.IssueState(old.key, "DORA_NAV", old.number, old.id, old.node_id, old.url,
                                          old.title, old.body, old.labels)
-    with pytest.raises(plan.PlanError, match="13.03 is in DORA_NAV, the workbook says dora"):
+    with pytest.raises(plan.PlanError, match=re.escape("13.03 is in DORA_NAV, the workbook says dora")):
         plan.build(REQS, FEATS, st)

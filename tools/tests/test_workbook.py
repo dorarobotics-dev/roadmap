@@ -1,3 +1,4 @@
+import re
 import shutil
 from collections import Counter
 
@@ -40,9 +41,9 @@ def test_requirements():
     assert q["F"].key == "RF" and q["25"].key == "R25"
 
 
-def _doctored(tmp_path, sheet, cell, value):
-    path = tmp_path / "map.xlsx"
-    shutil.copy(MAP, path)
+def _doctored(tmp_path, sheet, cell, value, source=MAP):
+    path = tmp_path / source.name
+    shutil.copy(source, path)
     wb = openpyxl.load_workbook(path)
     wb[sheet][cell] = value
     wb.save(path)
@@ -58,5 +59,16 @@ def _doctored(tmp_path, sheet, cell, value):
     ("octos", "A1", "Id", "unexpected header"),
 ])
 def test_bad_workbook_is_refused(tmp_path, sheet, cell, value, message):
-    with pytest.raises(workbook.WorkbookError, match=message):
+    with pytest.raises(workbook.WorkbookError, match=re.escape(message)):
         workbook.read_features(_doctored(tmp_path, sheet, cell, value))
+
+
+@pytest.mark.parametrize("sheet,cell,message", [
+    ("functions", "G2", "row 13: empty 国家要求 in the v1.3 workbook"),
+    ("functions", "H3", "row 14: empty 扩展功能及参数依据 in the v1.3 workbook"),
+    ("delivery", "C4", "row 14: empty 量化指标要求 in the v1.3 workbook"),
+])
+def test_empty_v13_text_is_refused(tmp_path, sheet, cell, message):
+    source = _doctored(tmp_path, sheet, cell, None, source=SOURCE)
+    with pytest.raises(workbook.WorkbookError, match=re.escape(message)):
+        workbook.read_requirements(MAP, source)
