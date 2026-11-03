@@ -46,3 +46,32 @@ def test_writeback(tmp_path):
     assert out[-1] == "dry run: 2 issue URLs to write (add --apply)"  # RF and F.04; RF has no workbook cell
     code, out = run(["writeback", "--apply", "--map", str(path)], g)
     assert out[-1] == "1 cells written; recalculate the workbook before committing"
+
+
+def test_setup_dry_run_creates_nothing():
+    g = FakeGh()
+    code, out = run(["setup"], g)
+    assert code == 0 and out[-1] == "dry run: nothing changed (add --apply)"
+    assert g.repo_labels == {} and g.project is None and g.fields == {} and g.view_ids == {}
+    g.create_project("Embodied middleware v1.3")
+    fields, views = dict(g.fields), dict(g.view_ids)
+    code, out = run(["setup"], g)
+    assert g.repo_labels == {} and g.fields == fields and g.view_ids == views and g.view_filters == {}
+    assert any(line.startswith("field Row") for line in out) and any(line.startswith("view Row 13") for line in out)
+
+
+def test_only_with_spaces_is_parsed():
+    g = FakeGh()
+    code, out = run(["sync", "--only", " F , 13.02 "], g)
+    created = [line.split()[1] for line in out if line.startswith("create_issue")]
+    assert created[0] == "RF" and created[-2:] == ["R13", "13.02"]
+    assert sorted(created[1:-2]) == [f"F.{n:02d}" for n in range(1, 21)]
+
+
+def test_orphan_issues_are_warned_about():
+    g = FakeGh()
+    run(["setup", "--apply"], g)
+    g.create_issue("dora", "[F.99] gone", "old <!-- fm:F.99 -->", (), "F.99")
+    code, out = run(["sync"], g)
+    assert code == 0
+    assert "WARNING F.99: https://github.com/dorarobotics-dev/dora/issues/1 is not in the workbook; left as it is" in out
