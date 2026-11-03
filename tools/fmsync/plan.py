@@ -54,7 +54,7 @@ def build(requirements, features, state, only=None):
     feature_rows = {f.row for f in features if _selected(only, f.row, f.key)}
     for q in requirements:
         if _selected(only, q.row, q.key) or q.row in feature_rows:
-            fields = {"Row": ROW_NAMES[q.row], "Repo": "roadmap", "Kind": "requirement", "Feature ID": q.key}
+            fields = {"Row": ROW_NAMES[q.row], "Target repo": "roadmap", "Kind": "requirement", "Feature ID": q.key}
             if q.row in REQ_ESTIMATES:
                 fields["Estimate (days)"] = REQ_ESTIMATES[q.row]
             actions += _issue_actions(state, q.key, "roadmap", render.requirement_title(q),
@@ -63,7 +63,7 @@ def build(requirements, features, state, only=None):
         for f in features:
             if f.row != q.row or not _selected(only, f.row, f.key):
                 continue
-            fields = {"Row": ROW_NAMES[f.row], "Repo": f.repo, "Kind": f.kind, "Basis": f.status,
+            fields = {"Row": ROW_NAMES[f.row], "Target repo": f.repo, "Kind": f.kind, "Basis": f.status,
                       "Feature ID": f.id}
             if f.id in ESTIMATES:
                 fields["Estimate (days)"] = ESTIMATES[f.id]

@@ -26,7 +26,7 @@ BASIS_OPTIONS = ("new", "basis exists", "built, to move")
 # project field name -> (data type, single-select options)
 FIELDS = {
     "Row": ("SINGLE_SELECT", tuple(ROW_NAMES.values())),
-    "Repo": ("SINGLE_SELECT", REPOS),
+    "Target repo": ("SINGLE_SELECT", REPOS),  # "Repo" is a reserved field name on GitHub
     "Kind": ("SINGLE_SELECT", KIND_OPTIONS),
     "Basis": ("SINGLE_SELECT", BASIS_OPTIONS),
     "Feature ID": ("TEXT", ()),

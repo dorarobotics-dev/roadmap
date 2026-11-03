@@ -66,7 +66,7 @@ def test_fields():
     actions, _ = plan.build(REQS, FEATS, plan.State())
     f = {(a.key, a.field): a.value for a in actions if a.op == "set_field"}
     assert f[("13.02", "Row")] == "13 感知类算子 Perception"
-    assert f[("13.02", "Repo")] == "dora" and f[("13.02", "Kind")] == "feature"
+    assert f[("13.02", "Target repo")] == "dora" and f[("13.02", "Kind")] == "feature"
     assert f[("13.02", "Basis")] == "built, to move" and f[("13.02", "Feature ID")] == "13.02"
     assert f[("13.03", "Estimate (days)")] == 3 and f[("R13", "Estimate (days)")] == 40
     assert ("RF", "Estimate (days)") not in f and ("R13", "Basis") not in f

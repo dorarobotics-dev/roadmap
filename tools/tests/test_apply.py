@@ -136,6 +136,8 @@ def test_fake_is_as_strict_as_github():
     with pytest.raises(GhError):
         g.create_label("dora", "ROW:13", "000000", "")
     with pytest.raises(GhError):
+        g.create_field("PVT_1", "Target repo", "TEXT")
+    with pytest.raises(GhError, match="reserved"):
         g.create_field("PVT_1", "Repo", "TEXT")
     a = g.create_issue("roadmap", "a", "<!-- fm:R13 -->", (), "R13")
     b = g.create_issue("roadmap", "b", "<!-- fm:R14 -->", (), "R14")
@@ -145,4 +147,9 @@ def test_fake_is_as_strict_as_github():
         g.add_sub_issue("roadmap", b.number, c.id)
     item = g.add_item("PVT_1", c.node_id)
     with pytest.raises(GhError):
-        g.set_field("PVT_1", item, g.fields["Repo"], "nowhere")
+        g.set_field("PVT_1", item, g.fields["Target repo"], "nowhere")
+
+
+def test_no_field_uses_a_reserved_name():
+    from fakes import RESERVED_FIELD_NAMES
+    assert not {name.lower() for name in FIELDS} & RESERVED_FIELD_NAMES

@@ -27,7 +27,7 @@
 
 ## Decisions made while planning (not in the spec)
 
-1. **Views by API.** GitHub's GraphQL API now has `createProjectV2View` and `updateProjectV2View` (name, layout, filter). So all 17 views are created by `fm_sync.py setup`. Group-by cannot be set through the API: two table views (Overview by Row, By repo by Repo) get their grouping by hand (Task 14). Task 1 updates spec §3 accordingly.
+1. **Views by API.** GitHub's GraphQL API now has `createProjectV2View` and `updateProjectV2View` (name, layout, filter). So all 17 views are created by `fm_sync.py setup`. Group-by cannot be set through the API: two table views (Overview by Row, By repo by Target repo) get their grouping by hand (Task 14). Task 1 updates spec §3 accordingly.
 2. **Experiment status.** Items the experiment delivered fully (F.02, 13.02, 13.17) start as "Done (experiment)"; items delivered in part (F.01, F.03, F.04, F.06, F.07, 13.01) start as "In progress". Every one of them gets a comment quoting the feasibility report's Delivered / Not delivered columns.
 3. **Feature body links its requirement by text.** The parent link is the sub-issue relation itself (shown by GitHub on both issues); the body names the requirement, because its URL does not exist when the body is first rendered.
 4. **Added features (spec §2).** Eight rows are added to the workbook, all in row F:
@@ -143,7 +143,7 @@ In `$R/docs/superpowers/specs/2026-11-03-github-tracking-design.md`, replace the
 - Views, created by `fm_sync.py setup` through `createProjectV2View`/`updateProjectV2View` (name, layout,
   filter): Overview (table), 14 per-row boards (filter on Row; board columns default to Status), By repo
   (table), Delivery (table, filter Kind = delivery or requirement). Group-by cannot be set through the API:
-  Overview (group by Row) and By repo (group by Repo) are grouped by hand once.
+  Overview (group by Row) and By repo (group by Target repo; "Repo" is a reserved field name) are grouped by hand once.
 - Items the experiment delivered in part start as "In progress" (fully delivered: "Done (experiment)").
 ```
 
@@ -561,7 +561,7 @@ BASIS_OPTIONS = ("new", "basis exists", "built, to move")
 # project field name -> (data type, single-select options)
 FIELDS = {
     "Row": ("SINGLE_SELECT", tuple(ROW_NAMES.values())),
-    "Repo": ("SINGLE_SELECT", REPOS),
+    "Target repo": ("SINGLE_SELECT", REPOS),  # "Repo" is a reserved field name on GitHub
     "Kind": ("SINGLE_SELECT", KIND_OPTIONS),
     "Basis": ("SINGLE_SELECT", BASIS_OPTIONS),
     "Feature ID": ("TEXT", ()),
@@ -879,7 +879,7 @@ def test_fields():
     actions, _ = plan.build(REQS, FEATS, plan.State())
     f = {(a.key, a.field): a.value for a in actions if a.op == "set_field"}
     assert f[("13.02", "Row")] == "13 感知类算子 Perception"
-    assert f[("13.02", "Repo")] == "dora" and f[("13.02", "Kind")] == "feature"
+    assert f[("13.02", "Target repo")] == "dora" and f[("13.02", "Kind")] == "feature"
     assert f[("13.02", "Basis")] == "built, to move" and f[("13.02", "Feature ID")] == "13.02"
     assert f[("13.03", "Estimate (days)")] == 3 and f[("R13", "Estimate (days)")] == 40
     assert ("RF", "Estimate (days)") not in f and ("R13", "Basis") not in f
@@ -993,7 +993,7 @@ def build(requirements, features, state, only=None):
     feature_rows = {f.row for f in features if _selected(only, f.row, f.key)}
     for q in requirements:
         if _selected(only, q.row, q.key) or q.row in feature_rows:
-            fields = {"Row": ROW_NAMES[q.row], "Repo": "roadmap", "Kind": "requirement", "Feature ID": q.key}
+            fields = {"Row": ROW_NAMES[q.row], "Target repo": "roadmap", "Kind": "requirement", "Feature ID": q.key}
             if q.row in REQ_ESTIMATES:
                 fields["Estimate (days)"] = REQ_ESTIMATES[q.row]
             actions += _issue_actions(state, q.key, "roadmap", render.requirement_title(q),
@@ -1002,7 +1002,7 @@ def build(requirements, features, state, only=None):
         for f in features:
             if f.row != q.row or not _selected(only, f.row, f.key):
                 continue
-            fields = {"Row": ROW_NAMES[f.row], "Repo": f.repo, "Kind": f.kind, "Basis": f.status,
+            fields = {"Row": ROW_NAMES[f.row], "Target repo": f.repo, "Kind": f.kind, "Basis": f.status,
                       "Feature ID": f.id}
             if f.id in ESTIMATES:
                 fields["Estimate (days)"] = ESTIMATES[f.id]
@@ -2010,7 +2010,7 @@ Expected: empty output.
 gh api graphql -f query='{organization(login:"dorarobotics-dev"){projectsV2(first:5){nodes{number title url views(first:30){nodes{name filter}} fields(first:30){nodes{... on ProjectV2FieldCommon{name}}}}}}}' \
   --jq '.data.organization.projectsV2.nodes[] | .url, ([.views.nodes[].name]|length), [.fields.nodes[].name]'
 ```
-Expected: the project URL; `17`; field names include Status, Row, Repo, Kind, Basis, Feature ID, Estimate (days).
+Expected: the project URL; `17`; field names include Status, Row, Target repo, Kind, Basis, Feature ID, Estimate (days).
 
 No commit unless Step 2 needed a fix.
 
@@ -2023,7 +2023,7 @@ No commit unless Step 2 needed a fix.
 ```bash
 cd $R/tools && PYTHONPATH= $VENV/bin/python fm_sync.py sync | tail -3
 ```
-Expected: `plan: create_issue 145, update_issue 0, comment 9, add_item 145, set_field <n>, add_sub_issue 131` and `dry run: nothing changed (add --apply)`, with no `WARNING` lines. `<n>` = 145 (Status) + 145 × Row/Repo/Kind/Feature ID + 131 Basis + estimates: compute it from the output with `grep -c '^set_field'` and record it in the task report.
+Expected: `plan: create_issue 145, update_issue 0, comment 9, add_item 145, set_field <n>, add_sub_issue 131` and `dry run: nothing changed (add --apply)`, with no `WARNING` lines. `<n>` = 145 (Status) + 145 × Row/Target repo/Kind/Feature ID + 131 Basis + estimates: compute it from the output with `grep -c '^set_field'` and record it in the task report.
 
 - [ ] **Step 2: Spot-check three rendered issues**
 
@@ -2088,8 +2088,8 @@ Expected: `131 cells written; …`; recalc success with 0 errors; `41 passed`; p
 - [ ] **Step 1: Group the two table views (by hand, in the browser)**
 
 In the project (URL from Task 11 Step 4):
-1. Open view **Overview** → view menu (▾ next to the view name) → **Group by** → **Row**. Then **Fields** → show **Sub-issues progress**, **Status**, **Repo**, **Kind**, **Estimate (days)**. Click **Save**.
-2. Open view **By repo** → **Group by** → **Repo**; show **Status**, **Row**, **Basis**. **Save**.
+1. Open view **Overview** → view menu (▾ next to the view name) → **Group by** → **Row**. Then **Fields** → show **Sub-issues progress**, **Status**, **Target repo**, **Kind**, **Estimate (days)**. Click **Save**.
+2. Open view **By repo** → **Group by** → **Target repo**; show **Status**, **Row**, **Basis**. **Save**.
 
 - [ ] **Step 2: Final check**
 

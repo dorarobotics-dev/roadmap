@@ -6,6 +6,11 @@ from fmsync.plan import IssueState
 from fmsync.render import COMMENT_MARKER_RE, find_marker
 
 
+# Names GitHub refuses for custom project fields (seen live: "Repo"); built-in field names are taken too.
+RESERVED_FIELD_NAMES = {"repo", "repository", "title", "status", "labels", "assignees", "milestone",
+                        "reviewers", "type", "linked pull requests", "parent issue", "sub-issues progress"}
+
+
 class FakeGh:
     def __init__(self):
         self.ids = itertools.count(1)
@@ -77,6 +82,8 @@ class FakeGh:
         return {k: dict(v, options=dict(v["options"])) for k, v in self.fields.items()}
 
     def create_field(self, project_id, name, data_type, options=()):
+        if name.lower() in RESERVED_FIELD_NAMES:
+            raise GhError("Name cannot have a reserved value")
         if name in self.fields:
             raise GhError(f"field {name} already exists")
         self.fields[name] = {"id": f"F_{name}", "name": name, "type": data_type,

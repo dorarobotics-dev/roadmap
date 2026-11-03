@@ -75,7 +75,7 @@ One org project, **"Embodied middleware v1.3"**, containing every issue above.
 |---|---|---|
 | Status | single-select (built-in) | Todo · In progress · In review · Done (experiment) · Done |
 | Row | single-select | `F 基础 Foundation`, `13 感知类算子 Perception`, … `25 采集系统 Motion capture` |
-| Repo | single-select | dora, DORA_NAV, dora-moveit2, dora-studio, octos, dora-hub, roadmap |
+| Target repo | single-select | dora, DORA_NAV, dora-moveit2, dora-studio, octos, dora-hub, roadmap |
 | Kind | single-select | requirement · feature · delivery |
 | Basis | single-select | new · basis exists · built, to move |
 | Feature ID | text | e.g. `F.04`, `R13` |
@@ -86,7 +86,7 @@ One org project, **"Embodied middleware v1.3"**, containing every issue above.
 - Views, created by `fm_sync.py setup` through `createProjectV2View`/`updateProjectV2View` (name, layout,
   filter): Overview (table), 14 per-row boards (filter on Row; board columns default to Status), By repo
   (table), Delivery (table, filter Kind = delivery or requirement). Group-by cannot be set through the API:
-  Overview (group by Row) and By repo (group by Repo) are grouped by hand once.
+  Overview (group by Row) and By repo (group by Target repo; "Repo" is a reserved field name) are grouped by hand once.
 - Items the experiment delivered in part start as "In progress" (fully delivered: "Done (experiment)").
 
 ## 4. Sync script
