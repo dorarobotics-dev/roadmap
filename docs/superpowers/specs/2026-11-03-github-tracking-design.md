@@ -126,5 +126,5 @@ labels, project, fields and views; repos and pushes are explicit commands in the
 ## Out of scope
 
 - Implementing any feature; pushing anything to `dora-rs`, `octos-org` or `dorarobotics`.
-- Creating project views through the API (not supported).
+- Setting a view's group-by through the API (not supported; two views are grouped by hand).
 - Syncing status from GitHub back into the workbook (only issue URLs are written back).

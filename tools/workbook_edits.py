@@ -6,6 +6,7 @@ when their ID is not already present.
 """
 import pathlib
 import sys
+from copy import copy
 
 import openpyxl
 
@@ -57,6 +58,45 @@ def row_of(ws, fid):
     raise SystemExit(f"{ws.title}: {fid} not found")
 
 
+STYLE_ATTRS = ("font", "fill", "border", "alignment", "number_format", "protection")
+ADDED_IDS = {a[1] for a in ADDED}
+
+
+def status_fills(wb):
+    """Status text -> fill, read from the rows that were not added by this script."""
+    fills = {}
+    for ws in wb.worksheets:
+        for row in ws.iter_rows(min_row=2):
+            if row[0].value in ADDED_IDS or row[0].value in (None, "F.05"):
+                continue
+            if len(row) < 6:
+                continue
+            c = row[5]
+            if isinstance(c.value, str) and c.fill.fill_type:
+                fills.setdefault(c.value, copy(c.fill))
+    return fills
+
+
+def style_row(ws, row, template, fill):
+    """Copy the template row's styles onto row; set the status cell's fill. Return True if changed."""
+    changed = False
+    for src, dst in zip(template, row):
+        for attr in STYLE_ATTRS:
+            if attr == "fill" and dst.column == 6 and fill is not None:
+                continue  # the status cell takes the status fill below
+            if copy(getattr(dst, attr)) != copy(getattr(src, attr)):
+                setattr(dst, attr, copy(getattr(src, attr)))
+                changed = True
+    if fill is not None and copy(row[5].fill) != copy(fill):
+        row[5].fill = copy(fill)
+        changed = True
+    h = ws.row_dimensions[template[0].row].height
+    if ws.row_dimensions[row[0].row].height != h:
+        ws.row_dimensions[row[0].row].height = h
+        changed = True
+    return changed
+
+
 def main(path=MAP):
     wb = openpyxl.load_workbook(path)
     changed = []
@@ -80,6 +120,22 @@ def main(path=MAP):
             continue
         ws.append([fid, "F", FOUNDATION, feature, location, status, basis, None, None, note])
         changed.append(fid)
+
+    fills = status_fills(wb)
+    restyle = [("dora", "F.05")] + [(a[0], a[1]) for a in ADDED]
+    for sheet, fid in restyle:
+        ws = wb[sheet]
+        template = [r for r in ws.iter_rows(min_row=2) if r[0].value not in ADDED_IDS and r[0].value != "F.05"][-1]
+        row = row_of(ws, fid)
+        if style_row(ws, row, template, fills[row[5].value]) and fid not in changed:
+            changed.append(fid + " style")
+
+    for sheet in {a[0] for a in ADDED}:
+        ws = wb[sheet]
+        ref = f"A1:{openpyxl.utils.get_column_letter(ws.max_column)}{ws.max_row}"
+        if ws.auto_filter.ref != ref:
+            ws.auto_filter.ref = ref
+            changed.append(f"{sheet} autofilter")
 
     if changed:
         wb.save(path)
