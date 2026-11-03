@@ -1,3 +1,7 @@
+import re
+
+import pytest
+
 from conftest import MAP, SOURCE
 from fakes import FakeGh
 from fmsync import apply, plan, workbook
@@ -84,3 +88,61 @@ def test_rerun_after_a_crash_finishes_status_and_comment_once():
     assert len(g.comments) == 1
     assert g.items[s02.node_id]["fields"]["Status"] == "Done (experiment)"
     assert plan.build(reqs, feats, apply.load_state(g, g.project), only={"13.02"})[0] == []
+
+
+def _set_up():
+    g = FakeGh()
+    apply.setup(g, apply=True, log=lambda s: None)
+    return g
+
+
+def test_setup_reapplies_a_missing_or_changed_view_filter():
+    g = _set_up()
+    g.view_filters.pop(g.view_ids["Row 13"])           # crash between create_view and update_view
+    g.view_filters[g.view_ids["Delivery"]] = "kind:delivery"
+    log = []
+    apply.setup(g, apply=True, log=log.append)
+    assert log == ['view filter Row 13: row:"13 感知类算子 Perception"',
+                   "view filter Delivery: kind:delivery,requirement"]
+    assert g.view_filters[g.view_ids["Row 13"]] == 'row:"13 感知类算子 Perception"'
+    assert g.view_filters[g.view_ids["Delivery"]] == "kind:delivery,requirement"
+
+
+def test_setup_matches_labels_ignoring_case():
+    g = FakeGh()
+    for repo in REPOS:
+        g.repo_labels[repo] = {name.upper() for name in LABELS}
+    apply.setup(g, apply=True, log=lambda s: None)   # FakeGh refuses a duplicate label
+    assert all(len(g.repo_labels[r]) == len(LABELS) for r in REPOS)
+
+
+def test_setup_refuses_a_field_of_the_wrong_type():
+    g = _set_up()
+    g.fields["Estimate (days)"]["type"] = "TEXT"
+    with pytest.raises(ValueError, match=re.escape("field Estimate (days) is TEXT, expected NUMBER")):
+        apply.setup(g, apply=True, log=lambda s: None)
+
+
+def test_setup_refuses_a_project_without_status():
+    g = _set_up()
+    del g.fields["Status"]
+    with pytest.raises(ValueError, match="no Status field"):
+        apply.setup(g, apply=True, log=lambda s: None)
+
+
+def test_fake_is_as_strict_as_github():
+    from fmsync.github import GhError
+    g = _set_up()
+    with pytest.raises(GhError):
+        g.create_label("dora", "ROW:13", "000000", "")
+    with pytest.raises(GhError):
+        g.create_field("PVT_1", "Repo", "TEXT")
+    a = g.create_issue("roadmap", "a", "<!-- fm:R13 -->", (), "R13")
+    b = g.create_issue("roadmap", "b", "<!-- fm:R14 -->", (), "R14")
+    c = g.create_issue("dora", "c", "<!-- fm:13.01 -->", (), "13.01")
+    g.add_sub_issue("roadmap", a.number, c.id)
+    with pytest.raises(GhError):
+        g.add_sub_issue("roadmap", b.number, c.id)
+    item = g.add_item("PVT_1", c.node_id)
+    with pytest.raises(GhError):
+        g.set_field("PVT_1", item, g.fields["Repo"], "nowhere")

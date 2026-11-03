@@ -183,9 +183,9 @@ class Gh:
                      p=project_id, i=item_id, f=field["id"], value=v)
 
     def views(self, project_id) -> dict:
-        d = self.graphql("query($id:ID!){node(id:$id){... on ProjectV2{views(first:50){nodes{id name}}}}}",
+        d = self.graphql("query($id:ID!){node(id:$id){... on ProjectV2{views(first:50){nodes{id name filter}}}}}",
                          id=project_id)
-        return {v["name"]: v["id"] for v in d["node"]["views"]["nodes"]}
+        return {v["name"]: {"id": v["id"], "filter": v.get("filter") or ""} for v in d["node"]["views"]["nodes"]}
 
     def create_view(self, project_id, name, layout) -> str:
         d = self.graphql("mutation($p:ID!,$n:String!,$l:ProjectV2ViewLayout!){createProjectV2View("

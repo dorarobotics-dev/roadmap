@@ -97,3 +97,12 @@ def test_comment_markers_reads_all_comment_bodies():
 def test_comment_markers_none():
     g, _ = gh("")
     assert g.comment_markers("dora", 5) == set()
+
+
+def test_views_returns_id_and_filter():
+    g, r = gh(json.dumps({"data": {"node": {"views": {"nodes": [
+        {"id": "V1", "name": "Overview", "filter": None},
+        {"id": "V2", "name": "Row 13", "filter": 'row:"13 感知类算子 Perception"'}]}}}}))
+    assert g.views("P") == {"Overview": {"id": "V1", "filter": ""},
+                            "Row 13": {"id": "V2", "filter": 'row:"13 感知类算子 Perception"'}}
+    assert "filter" in r.calls[0][1]["query"]

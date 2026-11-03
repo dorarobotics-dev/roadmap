@@ -6,9 +6,9 @@ from .plan import State
 def setup(gh, apply, log=print):
     """Labels in every repo; the project with its Status options, fields and views. Returns the project."""
     for repo in REPOS:
-        have = gh.labels(repo)
+        have = {name.lower() for name in gh.labels(repo)}
         for name, (color, description) in LABELS.items():
-            if name not in have:
+            if name.lower() not in have:
                 log(f"label {repo} {name}")
                 if apply:
                     gh.create_label(repo, name, color, description)
@@ -20,6 +20,8 @@ def setup(gh, apply, log=print):
             return None
         project = gh.create_project(PROJECT_TITLE)
     fields = gh.project_fields(project["id"])
+    if "Status" not in fields:
+        raise ValueError(f"project {PROJECT_TITLE!r} has no Status field; add it by hand")
     if list(fields["Status"]["options"]) != list(STATUS_OPTIONS):
         log("Status options: " + ", ".join(STATUS_OPTIONS))
         if apply:
@@ -29,13 +31,15 @@ def setup(gh, apply, log=print):
             log(f"field {name} ({data_type})")
             if apply:
                 gh.create_field(project["id"], name, data_type, options)
+        elif fields[name]["type"] != data_type:
+            raise ValueError(f"field {name} is {fields[name]['type']}, expected {data_type}; fix it by hand")
         elif options and list(fields[name]["options"]) != list(options):
             raise ValueError(f"field {name} exists with options {list(fields[name]['options'])}; fix it by hand")
     views = gh.views(project["id"])
     if "Overview" not in views and "View 1" in views:
         log("view View 1 -> Overview")
         if apply:
-            gh.update_view(views["View 1"], name="Overview")
+            gh.update_view(views["View 1"]["id"], name="Overview")
         views["Overview"] = views.pop("View 1")
     for name, layout, view_filter in VIEWS:
         if name not in views:
@@ -44,6 +48,10 @@ def setup(gh, apply, log=print):
                 view_id = gh.create_view(project["id"], name, layout)
                 if view_filter:
                     gh.update_view(view_id, filter=view_filter)
+        elif views[name]["filter"] != view_filter:  # set by hand, or a run stopped after create_view
+            log(f"view filter {name}: {view_filter}")
+            if apply:
+                gh.update_view(views[name]["id"], filter=view_filter)
     return project
 
 

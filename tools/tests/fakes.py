@@ -1,6 +1,7 @@
 """In-memory stand-in for fmsync.github.Gh, with the same method names and return shapes."""
 import itertools
 
+from fmsync.github import GhError
 from fmsync.plan import IssueState
 from fmsync.render import COMMENT_MARKER_RE, find_marker
 
@@ -48,12 +49,16 @@ class FakeGh:
         return list(self.subs.get((repo, number), []))
 
     def add_sub_issue(self, repo, number, child_id):
+        if any(child_id in children for children in self.subs.values()):
+            raise GhError(f"HTTP 422: issue {child_id} already has a parent")
         self.subs.setdefault((repo, number), []).append(child_id)
 
     def labels(self, repo):
         return set(self.repo_labels.get(repo, set()))
 
     def create_label(self, repo, name, color, description):
+        if name.lower() in {n.lower() for n in self.repo_labels.get(repo, set())}:
+            raise GhError(f"HTTP 422: label {name} already exists in {repo}")
         self.repo_labels.setdefault(repo, set()).add(name)
 
     # project
@@ -72,6 +77,8 @@ class FakeGh:
         return {k: dict(v, options=dict(v["options"])) for k, v in self.fields.items()}
 
     def create_field(self, project_id, name, data_type, options=()):
+        if name in self.fields:
+            raise GhError(f"field {name} already exists")
         self.fields[name] = {"id": f"F_{name}", "name": name, "type": data_type,
                              "options": {o: f"{name}:{o}" for o in options}}
 
@@ -88,14 +95,14 @@ class FakeGh:
     def set_field(self, project_id, item_id, field, value):
         for item in self.items.values():
             if item["item_id"] == item_id:
-                if field["type"] == "SINGLE_SELECT":
-                    assert value in field["options"], (field["name"], value)
+                if field["type"] == "SINGLE_SELECT" and value not in field["options"]:
+                    raise GhError(f"no option {value!r} in field {field['name']}")
                 item["fields"][field["name"]] = float(value) if field["type"] == "NUMBER" else value
                 return
         raise KeyError(item_id)
 
     def views(self, project_id):
-        return dict(self.view_ids)
+        return {name: {"id": vid, "filter": self.view_filters.get(vid, "")} for name, vid in self.view_ids.items()}
 
     def create_view(self, project_id, name, layout):
         vid = f"V_{len(self.view_ids)}"
