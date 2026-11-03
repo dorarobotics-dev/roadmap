@@ -44,6 +44,10 @@ def test_experiment_comment():
     text = render.experiment_comment("13.02")
     assert text.startswith("**Experiment (Done (experiment)).**")
     assert "nodes/frame-transform" in text and "feasibility.md" in text
+    # figures from feasibility.md section 1 (cargo test totals at f70c3de9c)
+    assert ("Rust 1336 (dora-message, dora-core, dora-transform, dora-cli, dora-node-api-c) "
+            "and Python 254 tests pass") in text
+    assert "Rust 800" not in text
 
 
 def test_normalize_ignores_crlf_and_trailing_space():

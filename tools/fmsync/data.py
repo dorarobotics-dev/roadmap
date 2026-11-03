@@ -83,7 +83,8 @@ EXPERIMENT_EVIDENCE = (
     "(26 commits on `1016eab0a`) and [DORA_NAV](https://github.com/dorarobotics-dev/DORA_NAV/tree/exp/contract-core) "
     "(14 commits on `a9257f5`); report "
     "[`docs/contract-core/feasibility.md`](https://github.com/dorarobotics-dev/dora/blob/exp/contract-core/docs/contract-core/feasibility.md). "
-    "Rust 800 and Python 254 tests pass, `dora validate` 5/5, mutation sweep 15/15 caught, live run 579/579 clouds ok."
+    "Rust 1336 (dora-message, dora-core, dora-transform, dora-cli, dora-node-api-c) "
+    "and Python 254 tests pass, `dora validate` 5/5, mutation sweep 15/15 caught, live run 579/579 clouds ok."
 )
 
 # Engineer-days from feasibility.md "Effort for later slices": only figures given for one ID.
