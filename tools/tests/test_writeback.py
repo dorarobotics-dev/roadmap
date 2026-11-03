@@ -9,8 +9,9 @@ from fmsync import writeback
 def test_writes_only_the_issue_column(tmp_path):
     path = tmp_path / "map.xlsx"
     shutil.copy(MAP, path)
-    urls = {"F.04": "https://github.com/dorarobotics-dev/dora/issues/4",
-            "F.12": "https://github.com/dorarobotics-dev/roadmap/issues/9"}
+    # URLs the real workbook cannot already hold (it carries the live issue URLs since the first sync)
+    urls = {"F.04": "https://example.invalid/dora/issues/4",
+            "F.12": "https://example.invalid/roadmap/issues/9"}
     assert writeback.write_issue_urls(path, urls) == 2
     assert writeback.write_issue_urls(path, urls) == 0
     wb = openpyxl.load_workbook(path)
