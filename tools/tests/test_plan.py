@@ -37,6 +37,8 @@ def synced_state():
             st.items[a.key][a.field] = a.value
         elif a.op == "add_sub_issue":
             st.sub_issues.setdefault(a.parent, set()).add(a.key)
+        elif a.op == "comment":
+            st.comments.add(a.key)
     return st
 
 
@@ -113,3 +115,33 @@ def test_issue_in_wrong_repo_is_an_error():
                                          old.title, old.body, old.labels)
     with pytest.raises(plan.PlanError, match=re.escape("13.03 is in DORA_NAV, the workbook says dora")):
         plan.build(REQS, FEATS, st)
+
+
+def test_label_comparison_ignores_case():
+    st = synced_state()
+    old = st.issues["13.03"]
+    st.issues["13.03"] = plan.IssueState(old.key, old.repo, old.number, old.id, old.node_id, old.url,
+                                         old.title, old.body, ("Row:13", "KIND:feature", "Status:New"))
+    assert plan.build(REQS, FEATS, st)[0] == []
+    st.issues["13.03"] = plan.IssueState(old.key, old.repo, old.number, old.id, old.node_id, old.url,
+                                         old.title, old.body, ("Row:13", "KIND:feature"))
+    actions, _ = plan.build(REQS, FEATS, st)
+    assert [a.op for a in actions] == ["update_issue"]
+    assert sorted(actions[0].labels) == ["KIND:feature", "Row:13", "status:new"]
+
+
+def test_status_set_when_item_has_none():
+    st = synced_state()
+    del st.items["13.02"]["Status"]  # crash between add_item and set_field Status
+    actions, _ = plan.build(REQS, FEATS, st)
+    assert [(a.op, a.key, a.field, a.value) for a in actions] == [
+        ("set_field", "13.02", "Status", "Done (experiment)")]
+
+
+def test_experiment_comment_is_planned_when_missing_on_an_existing_issue():
+    st = synced_state()
+    st.comments.discard("13.02")  # crash between create_issue and comment
+    actions, _ = plan.build(REQS, FEATS, st)
+    assert [(a.op, a.key) for a in actions] == [("comment", "13.02")]
+    assert render.find_comment_marker(actions[0].body) == "13.02"
+    assert actions[0].repo == "dora"

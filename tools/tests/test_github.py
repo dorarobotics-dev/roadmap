@@ -84,3 +84,16 @@ def test_unknown_option_is_an_error():
     g, _ = gh()
     with pytest.raises(GhError, match="no option 'x' in field Repo"):
         g.set_field("P", "I", {"id": "F", "name": "Repo", "type": "SINGLE_SELECT", "options": {}}, "x")
+
+
+def test_comment_markers_reads_all_comment_bodies():
+    bodies = "Experiment text\nmore\n\n<!-- fm-comment:13.02 -->\nan unrelated comment\n"
+    g, r = gh(bodies)
+    assert g.comment_markers("dora", 5) == {"13.02"}
+    assert r.calls[0][0] == ["api", "--paginate", "repos/dorarobotics-dev/dora/issues/5/comments?per_page=100",
+                             "--jq", ".[].body"]
+
+
+def test_comment_markers_none():
+    g, _ = gh("")
+    assert g.comment_markers("dora", 5) == set()

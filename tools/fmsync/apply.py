@@ -1,5 +1,5 @@
 """Create the project scaffolding, read GitHub state, and carry out planned actions."""
-from .data import FIELDS, LABELS, PROJECT_TITLE, REPOS, STATUS_OPTIONS, VIEWS
+from .data import EXPERIMENT, FIELDS, LABELS, PROJECT_TITLE, REPOS, STATUS_OPTIONS, VIEWS
 from .plan import State
 
 
@@ -63,6 +63,8 @@ def load_state(gh, project, repos=REPOS) -> State:
                 state.items[key] = item["fields"]
                 state.item_ids[key] = item["item_id"]
     for key, s in state.issues.items():
+        if key in EXPERIMENT and key in gh.comment_markers(s.repo, s.number):
+            state.comments.add(key)
         if key.startswith("R"):
             state.sub_issues[key] = {by_id[i] for i in gh.sub_issue_ids(s.repo, s.number) if i in by_id}
     return state

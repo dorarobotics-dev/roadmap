@@ -48,6 +48,10 @@ def test_experiment_comment():
     assert ("Rust 1336 (dora-message, dora-core, dora-transform, dora-cli, dora-node-api-c) "
             "and Python 254 tests pass") in text
     assert "Rust 800" not in text
+    assert text.endswith("<!-- fm-comment:13.02 -->")
+    assert render.find_comment_marker(text) == "13.02"
+    assert render.find_marker(text) is None  # not mistaken for an issue marker
+    assert render.find_comment_marker("plain comment") is None
 
 
 def test_normalize_ignores_crlf_and_trailing_space():

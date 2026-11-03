@@ -5,7 +5,7 @@ import time
 
 from .data import ORG
 from .plan import IssueState
-from .render import find_marker
+from .render import COMMENT_MARKER_RE, find_marker
 
 RETRYABLE = ("rate limit", "HTTP 429", "HTTP 502", "HTTP 503")
 CREATE_PAUSE_S = 1.0
@@ -84,6 +84,11 @@ class Gh:
     def comment(self, repo, number, body) -> None:
         self.api(f"repos/{ORG}/{repo}/issues/{number}/comments", "POST", {"body": body})
         self._sleep(CREATE_PAUSE_S)
+
+    def comment_markers(self, repo, number) -> set:
+        """Keys of the fm-comment markers in the issue's comments."""
+        out = self.api(f"repos/{ORG}/{repo}/issues/{number}/comments?per_page=100", paginate=True, jq=".[].body")
+        return set(COMMENT_MARKER_RE.findall(out))
 
     def sub_issue_ids(self, repo, number) -> list:
         out = self.api(f"repos/{ORG}/{repo}/issues/{number}/sub_issues?per_page=100", paginate=True, jq=".[].id")

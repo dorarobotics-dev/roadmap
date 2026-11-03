@@ -4,6 +4,7 @@ import re
 from .data import EXPERIMENT, EXPERIMENT_EVIDENCE, ROW_ESTIMATE_NOTES
 
 MARKER_RE = re.compile(r"<!-- fm:([A-Z0-9.]+) -->")
+COMMENT_MARKER_RE = re.compile(r"<!-- fm-comment:([A-Z0-9.]+) -->")
 STATUS_LABEL = {"new": "status:new", "basis exists": "status:basis-exists",
                 "built, to move": "status:built-to-move"}
 
@@ -14,6 +15,15 @@ def marker(key: str) -> str:
 
 def find_marker(body):
     m = MARKER_RE.search(body or "")
+    return m.group(1) if m else None
+
+
+def comment_marker(key: str) -> str:
+    return f"<!-- fm-comment:{key} -->"
+
+
+def find_comment_marker(body):
+    m = COMMENT_MARKER_RE.search(body or "")
     return m.group(1) if m else None
 
 
@@ -70,4 +80,4 @@ def labels_for_feature(f) -> tuple:
 def experiment_comment(fid: str) -> str:
     status, delivered, missing = EXPERIMENT[fid]
     return "\n".join([f"**Experiment ({status}).** Delivered on `exp/contract-core`: {delivered}.", "",
-                      f"Not delivered: {missing}.", "", EXPERIMENT_EVIDENCE])
+                      f"Not delivered: {missing}.", "", EXPERIMENT_EVIDENCE, "", comment_marker(fid)])

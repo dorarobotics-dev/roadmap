@@ -2,7 +2,7 @@
 import itertools
 
 from fmsync.plan import IssueState
-from fmsync.render import find_marker
+from fmsync.render import COMMENT_MARKER_RE, find_marker
 
 
 class FakeGh:
@@ -39,6 +39,10 @@ class FakeGh:
 
     def comment(self, repo, number, body):
         self.comments.append((repo, number, body))
+
+    def comment_markers(self, repo, number):
+        self.calls.append(("comment_markers", repo, number))
+        return {k for r, n, b in self.comments if (r, n) == (repo, number) for k in COMMENT_MARKER_RE.findall(b)}
 
     def sub_issue_ids(self, repo, number):
         return list(self.subs.get((repo, number), []))
