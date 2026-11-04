@@ -20,6 +20,8 @@ project "Embodied middleware v1.3" are generated from it.
     python fm_sync.py sync             # dry run: issues, project items, fields, sub-issues
     python fm_sync.py sync --apply [--only F,13.02]
     python fm_sync.py writeback --apply  # issue URLs into the workbook's Issue / PR column
+    python fm_sync.py prose DIR        # dry run: fill empty prose areas from DIR/*.md
+    python fm_sync.py prose DIR --apply [--only R13,13.02]
 
 Edit the workbook, then run `sync`. The script never deletes or closes issues and
 sets Status only when an issue first enters the project (or is in the project
@@ -31,8 +33,19 @@ experiment comment carries `<!-- fm-comment:<ID> -->`, so it is posted once and
 re-posted only if it is missing. Re-running after an interruption finishes what
 was left out. Things to know:
 
-- **The workbook wins.** Title and body edits made on GitHub are overwritten by
-  the next `sync`. Discuss in comments; change text in the workbook.
+- **Issue bodies have two parts.** The sync owns the block between
+  `<!-- fm:begin -->` and `<!-- fm:end -->` at the end (the `## Tracking`
+  table and the marker) and rewrites it from the workbook. Everything above
+  `<!-- fm:begin -->` — Summary, Use case / Why, Proposed expected behavior,
+  Proposed API / Design — is edited on GitHub and never touched by `sync`.
+  Do not add text below `<!-- fm:end -->` or copy the markers into the prose;
+  the sync stops with an error naming the issue.
+- **Titles and labels follow the workbook.** Title edits made on GitHub are
+  overwritten by the next `sync`.
+- **`prose DIR`** posts first versions of the prose from draft files: each
+  `DIR/*.md` holds `# <ID>` sections (`# R13`, `# 13.02`), each with exactly
+  the four `##` headings above, in order. It writes only to issues whose prose
+  area is empty, so it never overwrites hand edits.
 - **Labels are only added** (compared ignoring case), never removed. When a
   feature's status changes in the workbook, the old `status:*` label stays on
   the issue; remove it by hand.
