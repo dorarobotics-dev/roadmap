@@ -86,11 +86,12 @@ def _issue_actions(state, key, repo, title, body, labels, fields, status, parent
     else:
         if existing.repo != repo:
             raise PlanError(f"{key} is in {existing.repo}, the workbook says {repo}; move it by hand")
+        prose, block = render.split(existing.body, f"{existing.repo}#{existing.number} ({key})")
         have = {name.lower() for name in existing.labels}
         missing = [name for name in labels if name.lower() not in have]
         if (render.normalize(existing.title) != render.normalize(title)
-                or render.normalize(existing.body) != render.normalize(body) or missing):
-            out.append(Action("update_issue", key, repo=repo, title=title, body=body,
+                or render.normalize(block) != render.normalize(body) or missing):
+            out.append(Action("update_issue", key, repo=repo, title=title, body=render.compose(prose, body),
                               labels=tuple(sorted(set(existing.labels) | set(missing)))))
     if comment and key not in state.comments:
         out.append(Action("comment", key, repo=repo, body=comment))

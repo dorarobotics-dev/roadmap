@@ -145,3 +145,39 @@ def test_experiment_comment_is_planned_when_missing_on_an_existing_issue():
     assert [(a.op, a.key) for a in actions] == [("comment", "13.02")]
     assert render.find_comment_marker(actions[0].body) == "13.02"
     assert actions[0].repo == "dora"
+
+
+def _replace(st, key, body):
+    old = st.issues[key]
+    st.issues[key] = issue(key, old.repo, old.title, body, old.labels, old.number)
+    return old
+
+
+def test_prose_is_kept_when_the_block_changes():
+    st = synced_state()
+    old = st.issues["13.02"]
+    _replace(st, "13.02", render.compose("## Summary\n\nHand text.", old.body.replace("| ref |", "| old |")))
+    [up] = [a for a in plan.build(REQS, FEATS, st)[0] if a.op == "update_issue"]
+    assert up.body == render.compose("## Summary\n\nHand text.", render.feature_body(F02, Q13.name))
+
+
+def test_prose_only_edit_plans_nothing():
+    st = synced_state()
+    _replace(st, "13.02", render.compose("## Summary\n\nNew words.", st.issues["13.02"].body))
+    assert plan.build(REQS, FEATS, st)[0] == []
+
+
+def test_legacy_body_is_moved_to_the_new_layout():
+    st = synced_state()
+    _replace(st, "13.02", "Feature **13.02** — one PR into `dora`.\n\n| | |\n\n<!-- fm:13.02 -->")
+    [up] = [a for a in plan.build(REQS, FEATS, st)[0] if a.op == "update_issue"]
+    assert up.body == render.feature_body(F02, Q13.name)
+    _replace(st, "13.02", up.body)
+    assert plan.build(REQS, FEATS, st)[0] == []
+
+
+def test_broken_layout_names_the_issue():
+    st = synced_state()
+    old = _replace(st, "13.02", st.issues["13.02"].body + "\nlate text")
+    with pytest.raises(render.LayoutError, match=re.escape(f"dora#{old.number} (13.02)")):
+        plan.build(REQS, FEATS, st)
