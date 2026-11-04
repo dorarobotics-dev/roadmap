@@ -122,3 +122,10 @@ class FakeGh:
             self.view_ids[name] = self.view_ids.pop(old)
         if filter is not None:
             self.view_filters[view_id] = filter
+
+
+def draft_section(key, extra=""):
+    """One `# ID` section of a draft file, with the four headings and a code fence holding `#` lines."""
+    return (f"# {key}\n\n## Summary\n\nSummary of {key}.\n\n## Use case / Why\n\nA base stops.\n\n"
+            "## Proposed expected behavior\n\nIt works.\n\n## Proposed API / Design\n\n"
+            "```yaml\n# inputs\n## not a heading\n```\n" + (extra + "\n" if extra else "") + "\n")
