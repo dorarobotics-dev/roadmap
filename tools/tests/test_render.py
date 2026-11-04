@@ -1,3 +1,5 @@
+import pytest
+
 from fmsync import render
 from fmsync.model import Feature, Requirement
 
@@ -9,10 +11,11 @@ D = Feature("13.15", "13", "roadmap", "delivery", "Fusion record", "", "new", ""
 
 def test_markers_round_trip():
     body = render.requirement_body(Q)
-    assert body.endswith("<!-- fm:R13 -->")
+    assert body.endswith("<!-- fm:R13 -->\n" + render.END)
     assert render.find_marker(body) == "R13"
     assert render.find_marker(render.feature_body(F, Q.name)) == "13.02"
     assert render.find_marker("no marker here") is None
+    assert render.find_marker(render.BEGIN + render.END) is None  # begin/end are not issue markers
 
 
 def test_requirement_title_and_body():
@@ -56,3 +59,36 @@ def test_experiment_comment():
 
 def test_normalize_ignores_crlf_and_trailing_space():
     assert render.normalize("a \r\nb\n") == render.normalize("a\nb")
+
+
+def test_bodies_are_managed_blocks():
+    for block in (render.requirement_body(Q), render.feature_body(F, Q.name)):
+        assert block.startswith(render.BEGIN + "\n## Tracking\n")
+        assert block.endswith(render.END)
+    assert "### 国家要求（必须完成）" in render.requirement_body(Q)
+
+
+def test_split_and_compose():
+    block = render.feature_body(F, Q.name)
+    assert render.split(block) == ("", block)
+    body = render.compose("## Summary\n\nText.\n\n", block)
+    assert body == "## Summary\n\nText.\n\n" + block
+    assert render.split(body) == ("## Summary\n\nText.", block)
+    assert render.split(body.replace("\n", "\r\n")) == ("## Summary\n\nText.", block)
+    assert render.split("legacy <!-- fm:13.02 -->") == (None, "legacy <!-- fm:13.02 -->")
+    assert render.compose(None, block) == block
+    assert render.compose("  \n", block) == block
+
+
+@pytest.mark.parametrize("make, message", [
+    (lambda b: b.replace(render.END, ""), "found 1 and 0"),
+    (lambda b: b.replace(render.BEGIN, ""), "found 0 and 1"),
+    (lambda b: b + "\n" + b, "found 2 and 2"),
+    (lambda b: render.END + "\n" + b.replace(render.END, render.BEGIN, 1).replace(render.BEGIN, "", 1),
+     "before"),
+    (lambda b: b + "\nlate text", "text after"),
+    (lambda b: "x <!-- fm:13.03 -->\n\n" + b, "marker in the prose"),
+])
+def test_split_refuses_a_broken_layout(make, message):
+    with pytest.raises(render.LayoutError, match=message):
+        render.split(make(render.feature_body(F, Q.name)), "dora#7 (13.02)")

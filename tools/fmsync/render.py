@@ -8,6 +8,13 @@ COMMENT_MARKER_RE = re.compile(r"<!-- fm-comment:([A-Z0-9.]+) -->")
 STATUS_LABEL = {"new": "status:new", "basis exists": "status:basis-exists",
                 "built, to move": "status:built-to-move"}
 
+BEGIN = "<!-- fm:begin -->"
+END = "<!-- fm:end -->"
+
+
+class LayoutError(ValueError):
+    """An issue body whose managed block cannot be found safely."""
+
 
 def marker(key: str) -> str:
     return f"<!-- fm:{key} -->"
@@ -32,23 +39,53 @@ def normalize(text) -> str:
     return "\n".join(line.rstrip() for line in lines)
 
 
+def _block(parts) -> str:
+    """The sync-owned part of an issue body."""
+    return "\n".join([BEGIN, "## Tracking", "", *parts, END])
+
+
+def split(body, where="issue"):
+    """(prose, block). (None, body) for a body from before the managed block existed."""
+    text = (body or "").replace("\r\n", "\n")
+    nb, ne = text.count(BEGIN), text.count(END)
+    if nb == 0 and ne == 0:
+        return None, text
+    if nb != 1 or ne != 1:
+        raise LayoutError(f"{where}: expected one {BEGIN} and one {END}, found {nb} and {ne}; fix the body by hand")
+    i, e = text.index(BEGIN), text.index(END)
+    if e < i:
+        raise LayoutError(f"{where}: {END} before {BEGIN}; fix the body by hand")
+    j = e + len(END)
+    if text[j:].strip():
+        raise LayoutError(f"{where}: text after {END}; move it above {BEGIN}")
+    prose = text[:i].rstrip()
+    if MARKER_RE.search(prose):
+        raise LayoutError(f"{where}: an fm marker in the prose area; remove it by hand")
+    return prose, text[i:j]
+
+
+def compose(prose, block) -> str:
+    prose = (prose or "").strip()
+    return f"{prose}\n\n{block}" if prose else block
+
+
 def requirement_title(q) -> str:
     return f"[R{q.row}] {q.name}"
 
 
 def requirement_body(q) -> str:
     parts = [f"Requirement group **{q.row}** of the v1.3 embodied-middleware feature map.", "",
-             "## Acceptance (summary)", "", q.acceptance_en or "—"]
+             "### Acceptance (summary)", "", q.acceptance_en or "—"]
     for heading, text in (("国家要求（必须完成）", q.national_zh), ("扩展功能及参数依据", q.expansion_zh),
                           ("量化指标要求", q.acceptance_zh)):
         if text:
-            parts += ["", f"## {heading}", "", text]
+            parts += ["", f"### {heading}", "", text]
     notes = ROW_ESTIMATE_NOTES.get(q.row)
     if notes:
-        parts += ["", "## Effort (feasibility report)", ""] + [f"- {n}" for n in notes]
+        parts += ["", "### Effort (feasibility report)", ""] + [f"- {n}" for n in notes]
     parts += ["", "Features are the sub-issues of this issue. Source: "
               "`docs/requirements/2026-10-26-feature-map-by-repo.xlsx` in this repo.", "", marker(q.key)]
-    return "\n".join(parts)
+    return _block(parts)
 
 
 def feature_title(f) -> str:
@@ -66,7 +103,7 @@ def feature_body(f, requirement_name: str) -> str:
             ("Package / location", f.location), ("Status", f.status),
             ("Existing basis", f.basis), ("Notes", f.notes)]
     table = ["| | |", "|---|---|"] + [f"| {k} | {_cell(v)} |" for k, v in rows]
-    return "\n".join([lead, "", *table, "", marker(f.key)])
+    return _block([lead, "", *table, "", marker(f.key)])
 
 
 def labels_for_requirement(q) -> tuple:
