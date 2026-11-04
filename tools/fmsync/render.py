@@ -21,7 +21,9 @@ def marker(key: str) -> str:
 
 
 def find_marker(body):
-    m = MARKER_RE.search(body or "")
+    body = body or ""
+    i = body.find(BEGIN)
+    m = MARKER_RE.search(body[i:] if i >= 0 else body)
     return m.group(1) if m else None
 
 
@@ -65,8 +67,10 @@ def split(body, where="issue"):
 
 
 def compose(prose, block) -> str:
-    prose = (prose or "").strip()
-    return f"{prose}\n\n{block}" if prose else block
+    prose = (prose or "").rstrip()
+    if not prose.strip():
+        return block
+    return f"{prose}\n\n{block}"
 
 
 def requirement_title(q) -> str:

@@ -76,3 +76,35 @@ def test_execute_keeps_title_and_labels():
     new = g.issues[("dora", s.number)]
     assert new.title == "T" and new.labels == ("row:13", "bug")
     assert new.body == render.compose("## Summary\n\nB.", render.feature_body(F02, Q13.name))
+
+
+def test_read_drafts_tilde_fence(tmp_path):
+    text = draft_section("13.02").replace("```yaml", "~~~yaml").replace("\n```\n", "\n~~~\n")
+    assert "# inputs" in prose.read_drafts(write(tmp_path, text), KNOWN)["13.02"]
+
+
+def test_read_drafts_long_fence_holds_short_fence(tmp_path):
+    text = draft_section("13.02").replace("```yaml\n# inputs\n## not a heading\n```", "````\n```\n# x\n## y\n````")
+    assert "# x" in prose.read_drafts(write(tmp_path, text), KNOWN)["13.02"]
+
+
+def test_read_drafts_indented_headings_and_bad_h1(tmp_path):
+    ok = draft_section("13.02").replace("## Summary", "  ## Summary").replace("# 13.02", "  # 13.02")
+    assert set(prose.read_drafts(write(tmp_path, ok), KNOWN)) == {"13.02"}
+    with pytest.raises(prose.ProseError, match=r"13.md:\d+: `# ` heading must be exactly `# <ID>`"):
+        prose.read_drafts(write(tmp_path, draft_section("13.02", "# R13 Navigation")), KNOWN)
+
+
+def test_marker_like_prose_is_refused_not_duplicated():
+    g = FakeGh()
+    st = synced_state()
+    for s in st.issues.values():
+        g.issues[(s.repo, s.number)] = s
+    s = st.issues["13.02"]
+    _, block = render.split(s.body)
+    g.issues[(s.repo, s.number)] = s.__class__(**{**s.__dict__, "body": "Uses `<!-- fm:ID -->` markers.\n\n" + block})
+    from fmsync.apply import load_state
+    loaded = load_state(g, None, repos=("roadmap", "dora"))
+    assert "ID" not in loaded.issues and "13.02" in loaded.issues
+    with pytest.raises(render.LayoutError, match="13.02"):
+        plan.build(REQS, FEATS, loaded)

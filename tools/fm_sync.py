@@ -38,6 +38,10 @@ def _prose(a, gh, state, reqs, feats, only, out) -> int:
     except ValueError as e:
         out(f"ERROR {e}")
         return 1
+    if only:
+        nodraft = sorted(only - set(drafts))
+        if nodraft:
+            out(f"WARNING --only entries with no draft: {', '.join(nodraft)}")
     missing = sorted(known - set(drafts))
     if missing and not only:
         out(f"WARNING no draft for {len(missing)}: {', '.join(missing)}")
@@ -86,7 +90,11 @@ def main(argv=None, gh=None, out=print) -> int:
     only = {x.strip() for x in a.only.split(",") if x.strip()} or None
     if a.command == "prose":
         return _prose(a, gh, state, reqs, feats, only, out)
-    actions, warnings = plan.build(reqs, feats, state, only)
+    try:
+        actions, warnings = plan.build(reqs, feats, state, only)
+    except ValueError as e:
+        out(f"ERROR {e}")
+        return 1
     for w in warnings:
         out("WARNING " + w)
     for action in actions:

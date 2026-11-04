@@ -100,3 +100,24 @@ def test_prose_refuses_bad_drafts_and_needs_a_directory(tmp_path):
     assert code == 1 and out[-1] == "ERROR F.md # F.99: F.99 is not in the workbook"
     code, out = run(["prose"], FakeGh())
     assert code == 2 and out[-1] == "prose needs a drafts directory"
+
+
+def test_prose_only_warns_about_entries_without_a_draft(tmp_path):
+    g = FakeGh()
+    run(["setup", "--apply"], g)
+    (tmp_path / "d.md").write_text(draft_section("F.04"), encoding="utf-8")
+    code, out = run(["prose", str(tmp_path), "--only", "F.04,13"], g)
+    assert "WARNING --only entries with no draft: 13" in out
+
+
+def test_sync_reports_a_broken_layout():
+    g = FakeGh()
+    run(["setup", "--apply"], g)
+    run(["sync", "--apply", "--only", "F.04"], g)
+    (key, s), = [(k, v) for k, v in g.issues.items() if v.key == "F.04"]
+    g.issues[key] = s.__class__(**{**s.__dict__, "body": s.body + "\nstray"})
+    before = dict(g.issues)
+    n = len(g.calls)
+    code, out = run(["sync", "--apply", "--only", "F.04"], g)
+    assert code == 1 and any(l.startswith("ERROR ") and "F.04" in l for l in out)
+    assert g.issues == before and not [c for c in g.calls[n:] if c[0] != "comment_markers"]

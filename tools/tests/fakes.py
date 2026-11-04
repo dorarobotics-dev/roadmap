@@ -1,4 +1,5 @@
 """In-memory stand-in for fmsync.github.Gh, with the same method names and return shapes."""
+import dataclasses
 import itertools
 
 from fmsync.github import GhError
@@ -27,7 +28,12 @@ class FakeGh:
 
     # issues
     def list_marked_issues(self, repo):
-        return [s for (r, _), s in sorted(self.issues.items()) if r == repo and find_marker(s.body)]
+        out = []
+        for (r, _), s in sorted(self.issues.items()):
+            key = find_marker(s.body) if r == repo else None
+            if key:
+                out.append(s if s.key == key else dataclasses.replace(s, key=key))
+        return out
 
     def create_issue(self, repo, title, body, labels, key):
         n = next(self.ids)

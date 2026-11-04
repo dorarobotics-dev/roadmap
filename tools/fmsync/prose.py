@@ -6,8 +6,10 @@ from dataclasses import dataclass
 from . import render
 
 HEADINGS = ("Summary", "Use case / Why", "Proposed expected behavior", "Proposed API / Design")
-ID_RE = re.compile(r"^# (\S+)\s*$")
-H2_RE = re.compile(r"^## (.+?)\s*$")
+ID_RE = re.compile(r"^ {0,3}# (\S+)\s*$")
+H2_RE = re.compile(r"^ {0,3}## (.+?)\s*$")
+H1_RE = re.compile(r"^ {0,3}# ")
+FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 
 
 class ProseError(ValueError):
@@ -22,17 +24,29 @@ class ProseAction:
     body: str = ""
 
 
-def _is_fence(line) -> bool:
-    return line.lstrip().startswith("```")
+def _fence(line, open_fence):
+    """The fence state after `line`: None (outside) or (char, length) of the open fence."""
+    m = FENCE_RE.match(line)
+    if not m:
+        return open_fence
+    run, rest = m.groups()
+    if open_fence is None:
+        return None if (run[0] == "`" and "`" in rest) else (run[0], len(run))
+    if run[0] == open_fence[0] and len(run) >= open_fence[1] and not rest.strip():
+        return None
+    return open_fence
 
 
 def _sections(path):
     """[(key, lines)] for the `# ID` sections of one file. Headings inside ``` fences do not count."""
-    sections, fence = [], False
+    sections, fence = [], None
     for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        if _is_fence(line):
-            fence = not fence
-        m = None if fence else ID_RE.match(line)
+        was = fence
+        fence = _fence(line, fence)
+        inside = was is not None or fence is not None
+        m = None if inside else ID_RE.match(line)
+        if not inside and not m and H1_RE.match(line):
+            raise ProseError(f"{path.name}:{n}: `# ` heading must be exactly `# <ID>`")
         if m:
             sections.append((m.group(1), []))
         elif sections:
@@ -40,16 +54,16 @@ def _sections(path):
         elif line.strip():
             raise ProseError(f"{path.name}:{n}: text before the first `# ID` heading")
     if fence:
-        raise ProseError(f"{path.name}: unclosed ``` fence")
+        raise ProseError(f"{path.name}: unclosed code fence")
     return sections
 
 
 def _headings(lines):
-    out, fence = [], False
+    out, fence = [], None
     for line in lines:
-        if _is_fence(line):
-            fence = not fence
-        elif not fence:
+        was = fence
+        fence = _fence(line, fence)
+        if was is None and fence is None:
             m = H2_RE.match(line)
             if m:
                 out.append(m.group(1))

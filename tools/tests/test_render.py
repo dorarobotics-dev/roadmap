@@ -92,3 +92,14 @@ def test_split_and_compose():
 def test_split_refuses_a_broken_layout(make, message):
     with pytest.raises(render.LayoutError, match=message):
         render.split(make(render.feature_body(F, Q.name)), "dora#7 (13.02)")
+
+
+def test_find_marker_ignores_marker_like_prose():
+    body = "The sync uses `<!-- fm:ID -->` markers.\n\n" + render.BEGIN + "\n## Tracking\n\n<!-- fm:13.02 -->\n" + render.END
+    assert render.find_marker(body) == "13.02"
+    assert render.find_marker("legacy\n<!-- fm:13.02 -->") == "13.02"
+
+
+def test_compose_keeps_leading_indent():
+    block = render.BEGIN + "\nx\n" + render.END
+    assert render.compose("    code\n\n", block) == "    code\n\n" + block
