@@ -2,7 +2,7 @@ import shutil
 
 import fm_sync
 from conftest import MAP
-from fakes import FakeGh
+from fakes import FakeGh, draft_section
 
 
 def run(argv, g):
@@ -75,3 +75,28 @@ def test_orphan_issues_are_warned_about():
     code, out = run(["sync"], g)
     assert code == 0
     assert "WARNING F.99: https://github.com/dorarobotics-dev/dora/issues/1 is not in the workbook; left as it is" in out
+
+
+def test_prose_dry_run_apply_and_skip(tmp_path):
+    g = FakeGh()
+    run(["setup", "--apply"], g)
+    run(["sync", "--apply", "--only", "F"], g)
+    (tmp_path / "F.md").write_text(draft_section("RF") + draft_section("F.01"), encoding="utf-8")
+    code, out = run(["prose", str(tmp_path)], g)
+    assert code == 0 and out[0].startswith("WARNING no draft for 143:")
+    assert out[-2] == "prose: write 2, skip 0" and out[-1] == "dry run: nothing changed (add --apply)"
+    assert all(s.body.startswith("<!-- fm:begin -->") for s in g.issues.values())
+    assert run(["prose", str(tmp_path), "--apply"], g)[0] == 0
+    rf = next(s for s in g.issues.values() if s.key == "RF")
+    assert rf.body.startswith("## Summary\n\nSummary of RF.")
+    assert run(["prose", str(tmp_path)], g)[1][-2] == "prose: write 0, skip 2"
+    assert run(["sync", "--only", "F"], g)[1][-2] == ("plan: create_issue 0, update_issue 0, comment 0, "
+                                                       "add_item 0, set_field 0, add_sub_issue 0")
+
+
+def test_prose_refuses_bad_drafts_and_needs_a_directory(tmp_path):
+    (tmp_path / "F.md").write_text(draft_section("F.99"), encoding="utf-8")
+    code, out = run(["prose", str(tmp_path)], FakeGh())
+    assert code == 1 and out[-1] == "ERROR F.md # F.99: F.99 is not in the workbook"
+    code, out = run(["prose"], FakeGh())
+    assert code == 2 and out[-1] == "prose needs a drafts directory"

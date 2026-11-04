@@ -8,7 +8,7 @@ from collections import Counter
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 from fmsync import apply as ap  # noqa: E402
-from fmsync import plan, workbook, writeback  # noqa: E402
+from fmsync import plan, prose as pr, workbook, writeback  # noqa: E402
 from fmsync.data import PROJECT_TITLE  # noqa: E402
 
 REQ = pathlib.Path(__file__).resolve().parents[1] / "docs" / "requirements"
@@ -27,11 +27,38 @@ def describe(a) -> str:
     return f"{a.op:14} {a.key}"
 
 
+def _prose(a, gh, state, reqs, feats, only, out) -> int:
+    if not a.drafts:
+        out("prose needs a drafts directory")
+        return 2
+    known = {q.key for q in reqs} | {f.key for f in feats}
+    try:
+        drafts = pr.read_drafts(a.drafts, known)
+        actions = pr.build(drafts, state, only)
+    except ValueError as e:
+        out(f"ERROR {e}")
+        return 1
+    missing = sorted(known - set(drafts))
+    if missing and not only:
+        out(f"WARNING no draft for {len(missing)}: {', '.join(missing)}")
+    for x in actions:
+        out(f"{x.op:6} {x.key:7} {x.reason}")
+    counts = Counter(x.op for x in actions)
+    out(f"prose: write {counts.get('write', 0)}, skip {counts.get('skip', 0)}")
+    if not a.apply:
+        out("dry run: nothing changed (add --apply)")
+        return 0
+    pr.execute(gh, state, actions, out)
+    return 0
+
+
 def main(argv=None, gh=None, out=print) -> int:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("command", choices=["setup", "sync", "writeback"])
+    p.add_argument("command", choices=["setup", "sync", "writeback", "prose"])
+    p.add_argument("drafts", nargs="?", help="prose: directory of draft *.md files")
     p.add_argument("--apply", action="store_true", help="change GitHub (or the workbook, for writeback)")
-    p.add_argument("--only", default="", help="comma-separated rows (F, 13, ...) or IDs (F.04, R13, ...)")
+    p.add_argument("--only", default="",
+                   help="comma-separated rows (F, 13, ...) or IDs (F.04, R13, ...); prose takes IDs only")
     p.add_argument("--map", default=str(MAP))
     p.add_argument("--source", default=str(SOURCE))
     a = p.parse_args(argv)
@@ -57,6 +84,8 @@ def main(argv=None, gh=None, out=print) -> int:
 
     reqs, feats = workbook.read_requirements(a.map, a.source), workbook.read_features(a.map)
     only = {x.strip() for x in a.only.split(",") if x.strip()} or None
+    if a.command == "prose":
+        return _prose(a, gh, state, reqs, feats, only, out)
     actions, warnings = plan.build(reqs, feats, state, only)
     for w in warnings:
         out("WARNING " + w)
