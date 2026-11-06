@@ -13,8 +13,8 @@ from fmsync.model import ROWS
 def test_features_per_repo():
     feats = workbook.read_features(MAP)
     assert Counter(f.repo for f in feats) == {
-        "dora": 43, "DORA_NAV": 22, "dora-moveit2": 9, "dora-studio": 4,
-        "octos": 4, "dora-hub": 34, "roadmap": 16}
+        "dora": 43, "DORA_NAV": 23, "dora-moveit2": 9, "dora-studio": 4,
+        "octos": 4, "dora-hub": 33, "roadmap": 16}
     assert len({f.id for f in feats}) == 132
 
 

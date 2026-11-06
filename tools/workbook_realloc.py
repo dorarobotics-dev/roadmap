@@ -52,12 +52,17 @@ MOVES = {
     "13.10": ("DORA_NAV", f"{PERC}: clustering", None),
     "13.12": ("DORA_NAV", f"{PERC}: 2-D → 3-D lifting", None),
     "13.13": ("DORA_NAV", f"{PERC}: association and velocity", None),
-    "13.14": ("DORA_NAV", "examples/perception", None),
     "15.02": ("DORA_NAV", "node-hub/dora-trajectory-prediction (new)", None),
     "19.01": ("DORA_NAV", "node-hub/dora-rslidar, dora-livox (code moves from DORA_NAV modules/drivers)", None),
     "15.03": ("dora-moveit2", "node-hub/dora-intent-recognition (new)", None),
     "25.02": ("dora-moveit2", "node-hub/dora-teleop-calibration (new)", None),
     "25.03": ("dora-moveit2", "node-hub/dora-gesture (new)", None),
+}
+
+# Moved to dora-hub at first, then returned: an integration dataflow that wires hub nodes
+# to a DORA_NAV robot lives in DORA_NAV (like 15.06). ID -> (sheet, location)
+RETURNS = {
+    "13.14": ("DORA_NAV", "examples/perception (wires the dora-hub perception nodes to the DORA_NAV sim)"),
 }
 
 # sheet, ID, row, requirement, feature, package / location, status, existing basis, notes
@@ -163,6 +168,17 @@ def main(path=MAP):
         vals[9] = f"{vals[9]} {note}".strip() if vals[9] else note
         sheets[HUB].append(vals)
         changed.append(f"{fid} {old}->{HUB}")
+
+    for fid, (sheet, location) in RETURNS.items():
+        hit = [v for v in sheets[HUB] if v[0] == fid]
+        if hit:
+            vals = hit[0]
+            sheets[HUB].remove(vals)
+            vals[4] = location
+            vals[9] = REALLOC_NOTE.format(date=DATE, old=HUB).replace("moved from", "returned from")
+            at = max((i for i, v in enumerate(sheets[sheet]) if _id_key(v[0]) < _id_key(fid)), default=-1) + 1
+            sheets[sheet].insert(at, vals)
+            changed.append(f"{fid} {HUB}->{sheet}")
 
     for sheet, fid, row, req, feature, location, status, basis, note in ADDED:
         rows = sheets[sheet]
