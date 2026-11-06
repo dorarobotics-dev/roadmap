@@ -15,8 +15,8 @@ def test_sync_dry_run_without_project_plans_everything():
     g = FakeGh()
     code, out = run(["sync"], g)
     assert code == 0 and g.issues == {}
-    assert out[-2].startswith("plan: create_issue 145, update_issue 0, comment 9, add_item 145, set_field ")
-    assert out[-2].endswith(", add_sub_issue 131")
+    assert out[-2].startswith("plan: create_issue 146, update_issue 0, comment 9, add_item 146, set_field ")
+    assert out[-2].endswith(", add_sub_issue 132")
     assert out[-1] == "dry run: nothing changed (add --apply)"
 
 
@@ -83,7 +83,7 @@ def test_prose_dry_run_apply_and_skip(tmp_path):
     run(["sync", "--apply", "--only", "F"], g)
     (tmp_path / "F.md").write_text(draft_section("RF") + draft_section("F.01"), encoding="utf-8")
     code, out = run(["prose", str(tmp_path)], g)
-    assert code == 0 and out[0].startswith("WARNING no draft for 143:")
+    assert code == 0 and out[0].startswith("WARNING no draft for 144:")
     assert out[-2] == "prose: write 2, skip 0" and out[-1] == "dry run: nothing changed (add --apply)"
     assert all(s.body.startswith("<!-- fm:begin -->") for s in g.issues.values())
     assert run(["prose", str(tmp_path), "--apply"], g)[0] == 0
