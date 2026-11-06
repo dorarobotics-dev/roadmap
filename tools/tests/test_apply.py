@@ -38,7 +38,7 @@ def test_full_sync_then_nothing_to_do():
     actions, warnings = plan.build(reqs, feats, state)
     assert warnings == []
     apply.execute(g, g.project, actions, state, log=lambda s: None)
-    assert len(g.issues) == 14 + 132
+    assert len(g.issues) == 14 + 133
     assert len(g.comments) == 9
     roadmap_r13 = next(s for s in g.issues.values() if s.key == "R13")
     assert len(g.subs[("roadmap", roadmap_r13.number)]) == sum(1 for f in feats if f.row == "13")
